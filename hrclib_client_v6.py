@@ -89,12 +89,12 @@ class myclient(object):
     def _subscribe_actionfb_callback(self,data):
         self.fbdata=data.feedback
 
-class ARC_ACTION_LIB_Interface():
+class odyssey_Interface():
     # simple interface name with L0...
     # ICURAS interface name with i_L0...
     def __init__(self):
         self.gval=GlobalVariables()
-        rospy.init_node("ARC_ACTION_LIB_Interface_py3_node")
+        rospy.init_node("odyssey_Interface_py3_node")
 
         self.client_L0_upper_jp_move_safe=myclient(name="L0_upper_jp_move_safe",
                                                    action=arcmsg.upper_jp_movo_safeAction,
@@ -126,6 +126,7 @@ class ARC_ACTION_LIB_Interface():
             r.sleep()
 
 
+
     def _subscribe_jointstates_callback(self,data):
         self.linear_js_pos = data.position[0:1]
         self.linear_js_vel = data.velocity[0:1]
@@ -142,10 +143,8 @@ class ARC_ACTION_LIB_Interface():
         self.jp=self.right_arm_js_pos+self.left_arm_js_pos+self.linear_js_pos+self.head_js_pos
 
         self.jp_updated = True
-
     def E0_getjp(self):
         return self.jp
-
     def E0_getjp_arm(self,arm):
 
         if(arm=="left" or arm=='l'):
@@ -157,18 +156,91 @@ class ARC_ACTION_LIB_Interface():
         raise NotImplementedError("ARM not defined")
         # return self.jp
 
+
     def tool_dist(self,l1,l2):
         dist = sum([(v - l1[i]) ** 2 for i, v in enumerate(l2)]) ** 0.5
         return dist
 
-    def _L0_dual_set_gripper(self,value):
+
+
+    def _L0_dual_set_gripper(self,value,wait=True):
         goal=arcmsg.dual_set_gripperGoal
         goal.value=value
         self.done_thr_set_grippers=False
         self.client_L0_dual_set_gripper.send_goal(goal)
-        self.client_L0_dual_set_gripper.wait_for_result()
+        if wait:
+            self.client_L0_dual_set_gripper.wait_for_result()
         self.done_thr_set_grippers=True
+    def _L0_dual_jp_move_safe_relate(self, jp_r, jp_l, lmaxforce, rmaxforce, duration, wait=True):
+        self.done_thr_jprot_re = False
+        mygoal = arcmsg.dual_jp_movo_safe_relateGoal()
+        mygoal.jp_left_relate = jp_l
+        mygoal.jp_right_relate = jp_r
+        mygoal.l_max_force = lmaxforce
+        mygoal.r_max_force = rmaxforce
+        mygoal.duration = duration
+        # send a goal
+        self.client_L0_dual_jp_move_safe_relate.send_goal(mygoal)
+        if (wait):
+            self.client_L0_dual_jp_move_safe_relate.wait_for_result()
+        pass
+        self.done_thr_jprot_re = True
+    def _L0_single_task_move_safe(self,arm,pos,orn,max_force,wait=True):
+        assert arm in ["left","right"]
+        self.done_thr_single_task=False
+        mygoal = arcmsg.single_task_move_safeGoal()
+        arm = 0 if arm=="left" else 1
+        mygoal.pos = pos
+        mygoal.orn = orn
+        mygoal.arm = arm
+        mygoal.max_force = max_force
+        # mygoal.duration = duration
+        # send a goal
+        self.client_L0_single_task_move_safe.send_goal(mygoal)
+        if(wait):
+            self.client_L0_single_task_move_safe.wait_for_result()
 
+        self.done_thr_single_task=True
+    def _L0_dual_task_move_safe_relate(self,rmove,lmove,time,rmaxforce,lmaxforce,wait=True):
+
+        self.done_thr_taskmov_re=False
+
+        mygoal = arcmsg.dual_task_move_safe_relateGoal()
+        mygoal.pos_r=rmove
+        mygoal.pos_l=lmove
+        mygoal.time=time
+        mygoal.r_max_force=rmaxforce
+        mygoal.l_max_force=lmaxforce
+
+        # send a goal
+        self.client_L0_dual_task_move_safe_relate.send_goal(mygoal)
+        if wait:
+            self.client_L0_dual_task_move_safe_relate.wait_for_result()
+
+        self.done_thr_taskmov_re=True
+    def _L0_upper_jp_move_safe(self,jpl,jpr,jph,jplinear,duration,lforce,rforce,wait=True):
+
+        mygoal = arcmsg.upper_jp_movo_safeGoal()
+        mygoal.jp_left = jpl
+        mygoal.jp_right = jpr
+        mygoal.jp_head = jph
+        mygoal.jp_linear = jplinear
+        mygoal.duration = duration
+        mygoal.l_max_force = lforce
+        mygoal.r_max_force = rforce
+        self.client_L0_upper_jp_move_safe.send_goal(mygoal)
+        if wait:
+            self.client_L0_dual_task_move_safe_relate.wait_for_result()
+
+    # deprecated
+    def eval_L0_upper_jp_move_safe(self):
+        return self.E0_getjp()
+    def _L0_dual_jp_move_safe_relate_decodeargs(self,args):
+        self._L0_dual_jp_move_safe_relate(jp_r=args[:7],
+                                          jp_l=args[7:14],
+                                          rmaxforce=args[14:20],
+                                          lmaxforce=args[20:26],
+                                          duration=args[26])
     def L0_upper_jp_move_safe(self,args):
 
         #filter_inputs
@@ -200,83 +272,6 @@ class ARC_ACTION_LIB_Interface():
 
         # send a goal
         self.client_L0_upper_jp_move_safe.send_goal(mygoal)
-
-    def eval_L0_upper_jp_move_safe(self):
-        return self.E0_getjp()
-
-    def _L0_dual_jp_move_safe_relate_decodeargs(self,args):
-        self._L0_dual_jp_move_safe_relate(jp_r=args[:7],
-                                          jp_l=args[7:14],
-                                          rmaxforce=args[14:20],
-                                          lmaxforce=args[20:26],
-                                          duration=args[26])
-
-    def _L0_dual_jp_move_safe_relate(self,jp_r,jp_l,lmaxforce,rmaxforce,duration,wait=True):
-        self.done_thr_jprot_re=False
-        mygoal = arcmsg.dual_jp_movo_safe_relateGoal()
-        mygoal.jp_left_relate = jp_l
-        mygoal.jp_right_relate = jp_r
-        mygoal.l_max_force = lmaxforce
-        mygoal.r_max_force = rmaxforce
-        mygoal.duration = duration
-        # send a goal
-        self.client_L0_dual_jp_move_safe_relate.send_goal(mygoal)
-        if(wait):
-            self.client_L0_dual_jp_move_safe_relate.wait_for_result()
-        pass
-        self.done_thr_jprot_re=True
-
-
-    def _L0_single_task_move_safe(self,arm,pos,orn,max_force,wait=True):
-        assert arm in ["left","right"]
-        self.done_thr_single_task=False
-        mygoal = arcmsg.single_task_move_safeGoal()
-        arm = 0 if arm=="left" else 1
-        mygoal.pos = pos
-        mygoal.orn = orn
-        mygoal.arm = arm
-        mygoal.max_force = max_force
-        # mygoal.duration = duration
-        # send a goal
-        self.client_L0_single_task_move_safe.send_goal(mygoal)
-        if(wait):
-            self.client_L0_single_task_move_safe.wait_for_result()
-
-        self.done_thr_single_task=True
-
-
-    def _L0_dual_task_move_safe_relate(self,rmove,lmove,time,rmaxforce,lmaxforce):
-
-        self.done_thr_taskmov_re=False
-
-        mygoal = arcmsg.dual_task_move_safe_relateGoal()
-        mygoal.pos_r=rmove
-        mygoal.pos_l=lmove
-        mygoal.time=time
-        mygoal.r_max_force=rmaxforce
-        mygoal.l_max_force=lmaxforce
-
-        # send a goal
-        self.client_L0_dual_task_move_safe_relate.send_goal(mygoal)
-        self.client_L0_dual_task_move_safe_relate.wait_for_result()
-
-        self.done_thr_taskmov_re=True
-    def _L0_dual_task_move_safe_relate(self,rmove,lmove,time,rmaxforce,lmaxforce):
-
-        self.done_thr_taskmov=False
-
-        mygoal = arcmsg.dual_task_move_safe_Goal()
-        mygoal.pos_r=rmove
-        mygoal.pos_l=lmove
-        mygoal.time=time
-        mygoal.r_max_force=rmaxforce
-        mygoal.l_max_force=lmaxforce
-
-        # send a goal
-        self.client_L0_dual_task_move_safe_relate.send_goal(mygoal)
-        self.client_L0_dual_task_move_safe_relate.wait_for_result()
-
-        self.done_thr_taskmov=True
 
 # Stable Tests
 def routine_test_all():
@@ -332,5 +327,5 @@ def routine_test():
 if __name__=="__main__":
     print("Start")
 
-    arc=ARC_ACTION_LIB_Interface()
+    arc=odyssey_Interface()
     routine_test()
