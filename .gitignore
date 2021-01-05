@@ -6,5 +6,6 @@ venv35
 z_ref
 z_ref_often
 .idea
-./yw_lx*
-./z_*
+
+yw_lx*
+z_*
