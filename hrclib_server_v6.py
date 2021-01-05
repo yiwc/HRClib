@@ -10,6 +10,7 @@ import moveit_commander
 import time
 import threading
 
+import geometry_msgs
 # msgs
 from actionlib_msgs.msg import GoalStatus
 import movo_arc_lib.msg as arclib_msg
@@ -48,6 +49,7 @@ from movo_action_clients.gripper_action_client import GripperActionClient
 
 from tf.transformations import *
 
+import tf
 class ref_Jaco_JointControl_JointTrajFollow(object):
     def __init__(self, arm, dof='7dof'):
         self.arm=arm
@@ -786,7 +788,8 @@ class L0_dual_task_move_safe_srv():
     def __init__(self, arclib_node):
         self._c = arclib_node
         self._action_name = "L0_dual_task_move_safe"
-        self._as = actionlib.SimpleActionServer(self._action_name, arclib_msg.dual_task_move_safeAction,
+        self._as = actionlib.SimpleActionServer(self._action_name,
+                                                arclib_msg.dual_task_move_safeAction,
                                                 execute_cb=self.execute_cb,
                                                 auto_start=False)
         self._as.register_preempt_callback(self.preempt_cb)
@@ -800,23 +803,6 @@ class L0_dual_task_move_safe_srv():
         q_rot = quaternion_from_euler(rx, ry, rz)
         q_new = quaternion_multiply(q_rot, q_org)
         return q_new
-
-    def L0_arm_move(self,arm,pos,orn,relate_frame,tolerance=0.005,wait=True):
-        assert arm in ["left","right"]
-        target = PoseStamped()
-        # target.header.frame_id = arm+"_ee_link"
-        # target.header.frame_id = "base_link"
-        target.header.frame_id = relate_frame
-        target.pose.position.x = pos[0]
-        target.pose.position.y = pos[1]
-        target.pose.position.z = pos[2]
-        q_org = [0, 0, 0, 1]
-        q_new = self.r_to_q(orn, q_org)
-        target.pose.orientation = Quaternion(q_new[0], q_new[1], q_new[2], q_new[3])
-        if arm=="left":
-            self._c.lmove_group.moveToPose(target, "left_ee_link", tolerance = tolerance,wait=wait)
-        elif arm == "right":
-            self._c.rmove_group.moveToPose(target, "right_ee_link", tolerance=tolerance, wait=wait)
     def send_sub_goals(self,goal):
         pos_r=goal.pos_r
         pos_l=goal.pos_l
@@ -934,6 +920,144 @@ class L0_dual_task_move_safe_srv():
             # cancel all sub golad
             self.cancel_all_sub_goals()
 
+class L0_single_task_move_safe_srv():
+   # This is a action server
+    _feedback = arclib_msg.single_task_move_safeFeedback()
+    _result = arclib_msg.single_task_move_safeResult()
+    def __init__(self, arclib_node):
+        self._c = arclib_node
+        self._action_name = "L0_single_task_move_safe"
+        self._as = actionlib.SimpleActionServer(self._action_name,
+                                                arclib_msg.single_task_move_safeAction,
+                                                execute_cb=self.execute_cb,
+                                                auto_start=False)
+        self._as.register_preempt_callback(self.preempt_cb)
+        self._as.start()
+        print(self._action_name, "Started!")
+
+
+    def send_sub_goals(self,goal):
+        pos=goal.pos
+        orn=goal.orn
+        arm=goal.arm
+        assert arm in [0,1]
+        arm="left" if arm==0 else "right"
+        self._c.L0_arm_move(arm,pos,orn,wait=False)
+        self.move_group=self._c.rmove_group \
+            if arm == "right" \
+            else self._c.lmove_group
+
+
+
+    def execute_cb(self, goal):
+        arm = goal.arm
+        arm="left" if arm==0 else "right"
+        self.move_group = self._c.\
+            rmove_group \
+            if arm == "right" \
+            else self._c.lmove_group
+
+        success = True
+        rospy.loginfo("goal get" + str(goal))
+        self.goal_start_time = time.time()
+        if (not (self._goal_check(goal))):
+            rospy.loginfo("Fail, the goal was rejected")
+            success = False
+
+        self._pub_feedback()
+
+
+        if (success == True):
+
+            self.send_sub_goals(goal=goal)
+
+            while (not rospy.is_shutdown()):
+
+                if self._as.is_preempt_requested():
+                    rospy.loginfo("%s: Preempted" % self._action_name)
+                    self._as.set_preempted()
+                    rospy.loginfo(" fail, preemted")
+                    success = False
+                    break
+
+
+                # update feedback and publish
+                self._pub_feedback()
+
+                # check if sub goals finished
+                move_success = self.move_group.get_move_action().get_result()
+
+                try:
+                    done_success = move_success.error_code.val == MoveItErrorCodes.SUCCESS
+                except Exception as err:
+                    done_success = False
+
+                # print(done_success)
+                # print(self._c.move_group.get_move_action().get_state())
+                sub_goal_state = self._c.move_group.get_move_action().get_state()
+                if sub_goal_state in [GoalStatus.PREEMPTED, GoalStatus.SUCCEEDED, GoalStatus.ABORTED,
+                                      GoalStatus.REJECTED, GoalStatus.RECALLED]:
+                    sub_goal_done = True
+                else:
+                    sub_goal_done = False
+                # check if force goal finished
+
+                maxforce = goal.max_force
+                force = self._c.E0_get_l_cart_force() if arm =="left" else self._c.E0_get_r_cart_force()
+                force_range_detect = [(abs(maxforce[i]) - abs(force[i]))< 0 for i in range(6)]
+
+                done_shut = rospy.is_shutdown()
+                force_success = sum(force_range_detect) > 0
+
+                if (force_success):
+                    self._as.set_preempted()
+                    rospy.loginfo(" fail, preemted by force max limitation detected")
+                    success = False
+                    break
+
+                # task finished, -> success
+                done = done_success or done_shut or sub_goal_done
+                if (done):
+                    success = True
+                    rospy.loginfo(" done")
+                    break
+
+                # over time exit
+                # if ((time.time() - self.goal_start_time) > goal.duration):
+                #     success = False
+                #     rospy.loginfo(" fail, overtime")
+                #     break
+
+        self._set_success_and_abort(success)
+    def _goal_check(self, goal):
+        # TODO not finished yet. Not important.
+        return True
+    def _pub_feedback(self):
+        self._as.publish_feedback(self._feedback)
+    def cancel_all_sub_goals(self):
+        freq = rospy.Rate(10)
+        freq.sleep()
+        self.move_group.get_move_action().cancel_all_goals()
+    def preempt_cb(self):
+        print("This action has been preempted")
+        # cancel all sub goals
+        self.cancel_all_sub_goals()
+    def _set_success_and_abort(self, success):
+            if success:
+                self._result.success = True
+                # rospy.loginfo("%s:Succeeded!",%self._action_name)
+                rospy.loginfo("Succeeded!" + str(self._action_name))
+                self._as.set_succeeded(self._result)
+            else:
+                self._result.success = False
+                # rospy.loginfo("%s:Succeeded!",%self._action_name)
+                rospy.loginfo("Aborted!" + str(self._action_name))
+                self._as.set_aborted(self._result)
+
+            # cancel all sub golad
+            self.cancel_all_sub_goals()
+
+
 
 class ARC_ACTION_LIB_NODE():
     def __init__(self):
@@ -986,6 +1110,39 @@ class ARC_ACTION_LIB_NODE():
                                  "left_wrist_spherical_1_joint",
                                  "left_wrist_spherical_2_joint",
                                  "left_wrist_3_joint"]
+
+
+
+    def L0_arm_move(self,arm,pos,orn,wait=False):
+        # assert arm in ["left","right"]
+        pose_goal = PoseStamped()
+        pose_goal.header.frame_id = "base_link"
+        # pose_goal = geometry_msgs.msg.Pose()
+        pose_goal.pose.position.x = pos[0]#float(0.749532245054)
+        pose_goal.pose.position.y = pos[1]#float(0.35)
+        pose_goal.pose.position.z = pos[2]#float(1.3)
+        quat = tf.transformations.\
+            quaternion_from_euler(float(orn[0]),
+                                  float(orn[1]),
+                                  float(orn[2]))
+        pose_goal.pose.orientation.x = quat[0]
+        pose_goal.pose.orientation.y = quat[1]
+        pose_goal.pose.orientation.z = quat[2]
+        pose_goal.pose.orientation.w = quat[3]
+        # tolerance=0.005
+        # target.pose.orientation = Quaternion(q_new[0], q_new[1], q_new[2], q_new[3])
+        if arm == "left":
+            self.lmove_group.moveToPose(pose_goal, "left_ee_link",
+                                        wait=wait)
+        elif arm == "right":
+            self.rmove_group.moveToPose(pose_goal, "right_ee_link",
+                                        wait=wait)
+
+        # group=self.movegroup_rarm_group if arm == "right" else self.movegroup_larm_group
+        # group.set_pose_target(pose_goal)
+        # plan = group.go(wait=wait)
+
+
     def E0_get_jointstates_pos(self):
         return self.jointstates_pos
     def E0_get_left_jointstates_pos(self):
@@ -1092,6 +1249,8 @@ class ARC_ACTION_LIB_NODE():
         self.Server_L0_dual_jp_move_safe_relate = L0_dual_jp_move_safe_relate_srv(self)
         self.Server_L0_dual_task_move_safe_relate = L0_dual_task_move_safe_relate_srv(self)
         self.Server_L0_dual_set_gripper=L0_dual_set_gripper_srv(self)
+        self.Server_L0_dual_task_move_safe=L0_dual_task_move_safe_srv(self)
+        self.Server_L0_single_task_move_safe=L0_single_task_move_safe_srv(self)
     def _init_start_update_sensors(self):
         self._subscribe_force("right")
         self._subscribe_force("left")
