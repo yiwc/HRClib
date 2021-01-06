@@ -9,6 +9,11 @@ from actionlib_msgs.msg import GoalStatus
 import threading
 import numpy as np
 import math
+import time
+#mssage
+
+from geometry_msgs.msg import Pose2D, PoseStamped, Quaternion, Vector3
+from movo_msgs.msg import JacoCartesianVelocityCmd
 
 # human robot collaboration library
 # HRClib
@@ -118,31 +123,63 @@ class odyssey_Interface():
                                                  fbmsg=arcmsg.single_task_move_safeFeedback)
 
 
-        rospy.Subscriber("/joint_states", JointState,self._subscribe_jointstates_callback)
+        self.subscribe_force("right")
+        self.subscribe_force("left")
+        self.subscribe_jointstates()
+        self._subscribe_eepose()
 
-        self.jp_updated=False
-        r=rospy.Rate(10)
-        while(not (self.jp_updated and True)):
-            r.sleep()
+        # rospy.Subscriber("/joint_states", JointState,self._subscribe_jointstates_callback)
+        #
+        # self.jp_updated=False
+        # r=rospy.Rate(10)
+        # while(not (self.jp_updated and True)):
+        #     r.sleep()
+
+        self.cartesianforce_right=None
+        self.cartesianforce_left=None
+        self.jointstates_pos=None
+        self.jointstates_vel=None
+        self.jointstates_effort=None
+        self.right_arm_js_pos = None
+        self.left_arm_js_pos = None
+        self.right_arm_js_vel = None
+        self.left_arm_js_vel = None
+        self.head_js_pos=None
+        self.head_js_vel=None
+        self.linear_js_pos=None
+        self.linear_js_vel=None
+        self.lpose= None
+        self.rpose= None
+        # When you add new states, please regist in _states
+
+            # Wait till all states got updated
+        while(sum(type(i)==type(None) for i in self._states)):
+            print(self._states)
+            time.sleep(1)
+            # print(self.jointstates_effort)
+            print("Wait till all states got first updated")
 
 
 
-    def _subscribe_jointstates_callback(self,data):
-        self.linear_js_pos = data.position[0:1]
-        self.linear_js_vel = data.velocity[0:1]
-
-        self.head_js_pos = data.position[1:3] #
-        self.head_js_vel = data.velocity[1:3] #
-
-        self.right_arm_js_pos = data.position[4:11]
-        self.right_arm_js_vel = data.velocity[4:11]
-
-        self.left_arm_js_pos = data.position[11:18]
-        self.left_arm_js_vel = data.velocity[11:18]
-
-        self.jp=self.right_arm_js_pos+self.left_arm_js_pos+self.linear_js_pos+self.head_js_pos
-
-        self.jp_updated = True
+    @property
+    def _states(self):
+        return [
+            self.cartesianforce_left,
+            self.cartesianforce_right,
+            self.jointstates_pos,
+            self.jointstates_vel,
+            self.jointstates_effort,
+            self.right_arm_js_pos,
+            self.left_arm_js_pos,
+            self.right_arm_js_vel,
+            self.left_arm_js_vel,
+            self.head_js_pos,
+            self.head_js_vel,
+            self.linear_js_pos,
+            self.linear_js_vel,
+            self.lpose,
+            self.rpose
+        ]
     def E0_getjp(self):
         return self.jp
     def E0_getjp_arm(self,arm):
@@ -156,6 +193,98 @@ class odyssey_Interface():
         raise NotImplementedError("ARM not defined")
         # return self.jp
 
+
+
+    def subscribe_force_callback_right(self, data):
+        fx = data.x
+        fy = data.y
+        fz = data.z
+        fr = data.theta_x
+        fp = data.theta_y
+        fa = data.theta_z
+        # print data
+        self.cartesianforce_right = [fx, fy, fz, fr, fp, fa]
+
+    def subscribe_force_callback_left(self, data):
+        fx = data.x
+        fy = data.y
+        fz = data.z
+        fr = data.theta_x
+        fp = data.theta_y
+        fa = data.theta_z
+        # print data
+        self.cartesianforce_left = [fx, fy, fz, fr, fp, fa]
+        # print(self.cartesianforce)
+    def subscribe_force(self, arm):
+        assert arm in ["left", "right"]
+        arm_name = arm+'_arm'
+        # print "======== I'm subscribe_force =========="
+        if(arm=="left"):
+            rospy.Subscriber("/movo/{}/cartesianforce".format(arm_name), JacoCartesianVelocityCmd,
+                             self.subscribe_force_callback_left)
+        elif(arm=="right"):
+            rospy.Subscriber("/movo/{}/cartesianforce".format(arm_name), JacoCartesianVelocityCmd,
+                             self.subscribe_force_callback_right)
+
+    def subscribe_jointstates_callback(self,data):
+        # [linear_joint, pan_joint, tilt_joint,
+        # mid_body_joint,
+        # right_shoulder_pan_joint, right_shoulder_lift_joint,right_arm_half_joint,
+        # right_elbow_joint, right_wrist_spherical_1_joint, right_wrist_spherical_2_joint,
+        #  right_wrist_3_joint,
+        #  left_shoulder_pan_joint, left_shoulder_lift_joint, left_arm_half_joint,
+        #  left_elbow_joint, left_wrist_spherical_1_joint, left_wrist_spherical_2_joint,
+        #  left_wrist_3_joint,
+        #  right_gripper_finger1_joint, right_gripper_finger2_joint, right_gripper_finger3_joint,
+        #  left_gripper_finger1_joint, left_gripper_finger2_joint, left_gripper_finger3_joint]
+
+        self.jointstates_pos = data.position
+        self.jointstates_vel = data.velocity
+        self.jointstates_effort = data.effort
+
+        self.linear_js_pos = data.position[0:1]
+        self.linear_js_vel = data.velocity[0:1]
+
+        self.head_js_pos = data.position[1:3] #
+        self.head_js_vel = data.velocity[1:3] #
+
+        self.right_arm_js_pos = data.position[4:11]
+        self.right_arm_js_vel = data.velocity[4:11]
+
+        self.left_arm_js_pos = data.position[11:18]
+        self.left_arm_js_vel = data.velocity[11:18]
+
+
+        # print(self.jointstates_pos)
+        # print(self.jointstates_vel)
+        # print(self.jointstates_effort)
+    def subscribe_jointstates(self):
+        rospy.Subscriber("/joint_states", JointState,
+                         self.subscribe_jointstates_callback)
+
+    def subscribe_lpose_callback(self,data):
+        self.lpose=[
+            data.pose.position.x,#xyz xyzw
+            data.pose.position.y,#xyz xyzw
+            data.pose.position.z,#xyz xyzw
+            data.pose.orientation.x,#xyz xyzw
+            data.pose.orientation.y,#xyz xyzw
+            data.pose.orientation.z,#xyz xyzw
+            data.pose.orientation.w]#xyz xyzw
+    def subscribe_rpose_callback(self,data):
+        self.rpose=[
+            data.pose.position.x,#xyz xyzw
+            data.pose.position.y,#xyz xyzw
+            data.pose.position.z,#xyz xyzw
+            data.pose.orientation.x,#xyz xyzw
+            data.pose.orientation.y,#xyz xyzw
+            data.pose.orientation.z,#xyz xyzw
+            data.pose.orientation.w]#xyz xyzw
+    def _subscribe_eepose(self):
+        rospy.Subscriber("/movo/left_arm/pose", PoseStamped,
+                         self.subscribe_lpose_callback)
+        rospy.Subscriber("/movo/right_arm/pose", PoseStamped,
+                         self.subscribe_rpose_callback)
 
     def tool_dist(self,l1,l2):
         dist = sum([(v - l1[i]) ** 2 for i, v in enumerate(l2)]) ** 0.5

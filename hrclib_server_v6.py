@@ -1100,7 +1100,22 @@ class ARC_ACTION_LIB_NODE():
         # init settings
         self._init_settings()
 
+        # init publishers (at the last)
+        self._init_publishers()
+        self._keep_publishing(wait=True)
+
+
         rospy.spin()
+    def _init_publishers(self):
+        self.publisher_lpose = rospy.Publisher('/movo/left_arm/pose', PoseStamped, queue_size=10)
+        self.publisher_rpose = rospy.Publisher('/movo/right_arm/pose', PoseStamped, queue_size=10)
+        pass
+    def _keep_publishing(self,wait=True):
+        while(True):
+            self.publisher_lpose.publish(self.lpose)
+            self.publisher_rpose.publish(self.rpose)
+            rospy.Rate(30)
+
     def _init_settings(self):
         self._upper_body_joints = ["right_shoulder_pan_joint",
                                    "right_shoulder_lift_joint",
@@ -1281,6 +1296,8 @@ class ARC_ACTION_LIB_NODE():
         self._subscribe_force("right")
         self._subscribe_force("left")
         self._subscribe_jointstates()
+        self._subscribe_eepose()
+
 
         self.cartesianforce_right = None
         self.cartesianforce_left = None
@@ -1295,6 +1312,8 @@ class ARC_ACTION_LIB_NODE():
         self.head_js_vel = None
         self.linear_js_pos = None
         self.linear_js_vel = None
+        self.lpose= None
+        self.rpose= None
         # When you add new states, please regist in _states
             # Wait till all states got updated
         while(sum(type(i)==type(None) for i in self._states)):
@@ -1318,7 +1337,9 @@ class ARC_ACTION_LIB_NODE():
             self.head_js_pos,
             self.head_js_vel,
             self.linear_js_pos,
-            self.linear_js_vel
+            self.linear_js_vel,
+            self.lpose,
+            self.rpose
         ]
     def _subscribe_force_callback_right(self, data):
         fx = data.x
@@ -1379,6 +1400,18 @@ class ARC_ACTION_LIB_NODE():
     def _subscribe_jointstates(self):
         rospy.Subscriber("/joint_states", JointState,
                          self._subscribe_jointstates_callback)
+
+    def _subscribe_eepose(self):
+        thr=threading.Thread(target=self.get_eepose,args=())
+        thr.start()
+    def get_eepose(self):
+        while True:
+            lpose=self.movegroup_larm_group.get_current_pose()
+            rpose=self.movegroup_rarm_group.get_current_pose()
+            self.lpose=lpose
+            self.rpose=rpose
+            rospy.Rate(30)
+
 
 if __name__=="__main__":
     print("Start")
