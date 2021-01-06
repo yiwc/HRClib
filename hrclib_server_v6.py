@@ -978,30 +978,6 @@ class L0_single_task_move_safe_srv():
             if arm == "right" \
             else self._c.lmove_group
 
-    def wait_for_result_force_condition(self, action,lforce,rforce,timeout=rospy.Duration()):
-        if not self.gh:
-            rospy.logerr("Called wait_for_result when no goal exists")
-            return False
-
-        timeout_time = rospy.get_rostime() + timeout
-        loop_period = rospy.Duration(0.1)
-        with self.done_condition:
-            while not rospy.is_shutdown():
-                time_left = timeout_time - rospy.get_rostime()
-                if timeout > rospy.Duration(0.0) and time_left <= rospy.Duration(0.0):
-                    break
-
-                if self.simple_state == SimpleGoalState.DONE:
-                    break
-
-                if time_left > loop_period or timeout == rospy.Duration():
-                    time_left = loop_period
-
-                self.done_condition.wait(time_left.to_sec())
-
-        return self.simple_state == SimpleGoalState.DONE
-
-
     def execute_cb(self, goal):
         arm = goal.arm
         arm="left" if arm==0 else "right"
@@ -1023,27 +999,6 @@ class L0_single_task_move_safe_srv():
         if (success == True):
 
             self.send_sub_goals(goal=goal)
-            action=self.move_group.get_move_action()
-            # action=self.move_group.get_move_action()
-            # maxforce = goal.max_force
-            # force = self._c.E0_get_l_cart_force() if arm =="left" else self._c.E0_get_r_cart_force()
-            # force_range_detect = [(abs(maxforce[i]) - abs(force[i]))< 0 for i in range(6)]
-            # lforce = force if arm=="left" else None
-            # rforce = force if arm=="right" else None
-            # execute_timeout=5
-            #
-            # if not self.wait_for_result_force_condition(action,lforce,rforce,execute_timeout):
-            #     # preempt action
-            #     rospy.logdebug("Canceling goal")
-            #     action.cancel_goal()
-            #     if action.wait_for_result(preempt_timeout):
-            #         rospy.logdebug("Preempt finished within specified preempt_timeout [%.2f]", preempt_timeout.to_sec())
-            #     else:
-            #         rospy.logdebug("Preempt didn't finish specified preempt_timeout [%.2f]", preempt_timeout.to_sec())
-            # action_end_state = action.get_state()
-            #
-            # self._set_success_and_abort(success)
-
 
 
 
@@ -1060,19 +1015,6 @@ class L0_single_task_move_safe_srv():
                 # update feedback and publish
                 self._pub_feedback()
 
-                # # check if sub goals finished
-                # move_success = self.move_group.get_move_action().get_result()
-                # if move_success is None:
-                #     done_success=True # there is no goal
-                # else:
-                # # try:
-                #     done_success = move_success.error_code.val == MoveItErrorCodes.SUCCESS
-                # # except Exception as err:
-                # #     done_success = False
-
-                # print(done_success)
-                # print(self._c.move_group.get_move_action().get_state())
-                # sub_goal_state = self.move_group.get_move_action().get_state()
                 sub_goal_done=self.move_group.get_move_action().simple_state==SimpleGoalState.DONE
 
                 # if sub_goal_state in [GoalStatus.PREEMPTED, GoalStatus.SUCCEEDED, GoalStatus.ABORTED,
