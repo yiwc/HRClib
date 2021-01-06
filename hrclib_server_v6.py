@@ -110,6 +110,38 @@ class ref_Jaco_JointControl_JointTrajFollow(object):
                                                  '%s_wrist_spherical_1_joint' % arm,
                                                  '%s_wrist_spherical_2_joint' % arm,
                                                  '%s_wrist_3_joint' % arm]
+
+class SimpleGoalState:
+    PENDING = 0
+    ACTIVE = 1
+    DONE = 2
+class myserver(object):
+    def __init__(self):
+        pass
+    def wait_for_sub_result(self, timeout=rospy.Duration()):
+        if not self.gh:
+            rospy.logerr("Called wait_for_result when no goal exists")
+            return False
+
+        timeout_time = rospy.get_rostime() + timeout
+        loop_period = rospy.Duration(0.1)
+        with self.done_condition:
+            while not rospy.is_shutdown():
+                time_left = timeout_time - rospy.get_rostime()
+                if timeout > rospy.Duration(0.0) and time_left <= rospy.Duration(0.0):
+                    break
+
+                if self.simple_state == SimpleGoalState.DONE:
+                    break
+
+                if time_left > loop_period or timeout == rospy.Duration():
+                    time_left = loop_period
+
+                self.done_condition.wait(time_left.to_sec())
+
+        return self.simple_state == SimpleGoalState.DONE
+
+
 class L0_upper_jp_move_safe_srv():
     # This is a action server
     _feedback = arclib_msg.upper_jp_movo_safeFeedback()
@@ -935,7 +967,6 @@ class L0_single_task_move_safe_srv():
         self._as.start()
         print(self._action_name, "Started!")
 
-
     def send_sub_goals(self,goal):
         pos=goal.pos
         orn=goal.orn
@@ -947,6 +978,28 @@ class L0_single_task_move_safe_srv():
             if arm == "right" \
             else self._c.lmove_group
 
+    def wait_for_result_force_condition(self, action,lforce,rforce,timeout=rospy.Duration()):
+        if not self.gh:
+            rospy.logerr("Called wait_for_result when no goal exists")
+            return False
+
+        timeout_time = rospy.get_rostime() + timeout
+        loop_period = rospy.Duration(0.1)
+        with self.done_condition:
+            while not rospy.is_shutdown():
+                time_left = timeout_time - rospy.get_rostime()
+                if timeout > rospy.Duration(0.0) and time_left <= rospy.Duration(0.0):
+                    break
+
+                if self.simple_state == SimpleGoalState.DONE:
+                    break
+
+                if time_left > loop_period or timeout == rospy.Duration():
+                    time_left = loop_period
+
+                self.done_condition.wait(time_left.to_sec())
+
+        return self.simple_state == SimpleGoalState.DONE
 
 
     def execute_cb(self, goal):
@@ -958,7 +1011,7 @@ class L0_single_task_move_safe_srv():
             else self._c.lmove_group
 
         success = True
-        rospy.loginfo("goal get" + str(goal))
+        rospy.loginfo("goal get=>\n" + str(goal))
         self.goal_start_time = time.time()
         if (not (self._goal_check(goal))):
             rospy.loginfo("Fail, the goal was rejected")
@@ -970,6 +1023,29 @@ class L0_single_task_move_safe_srv():
         if (success == True):
 
             self.send_sub_goals(goal=goal)
+            action=self.move_group.get_move_action()
+            # action=self.move_group.get_move_action()
+            # maxforce = goal.max_force
+            # force = self._c.E0_get_l_cart_force() if arm =="left" else self._c.E0_get_r_cart_force()
+            # force_range_detect = [(abs(maxforce[i]) - abs(force[i]))< 0 for i in range(6)]
+            # lforce = force if arm=="left" else None
+            # rforce = force if arm=="right" else None
+            # execute_timeout=5
+            #
+            # if not self.wait_for_result_force_condition(action,lforce,rforce,execute_timeout):
+            #     # preempt action
+            #     rospy.logdebug("Canceling goal")
+            #     action.cancel_goal()
+            #     if action.wait_for_result(preempt_timeout):
+            #         rospy.logdebug("Preempt finished within specified preempt_timeout [%.2f]", preempt_timeout.to_sec())
+            #     else:
+            #         rospy.logdebug("Preempt didn't finish specified preempt_timeout [%.2f]", preempt_timeout.to_sec())
+            # action_end_state = action.get_state()
+            #
+            # self._set_success_and_abort(success)
+
+
+
 
             while (not rospy.is_shutdown()):
 
@@ -984,22 +1060,26 @@ class L0_single_task_move_safe_srv():
                 # update feedback and publish
                 self._pub_feedback()
 
-                # check if sub goals finished
-                move_success = self.move_group.get_move_action().get_result()
-
-                try:
-                    done_success = move_success.error_code.val == MoveItErrorCodes.SUCCESS
-                except Exception as err:
-                    done_success = False
+                # # check if sub goals finished
+                # move_success = self.move_group.get_move_action().get_result()
+                # if move_success is None:
+                #     done_success=True # there is no goal
+                # else:
+                # # try:
+                #     done_success = move_success.error_code.val == MoveItErrorCodes.SUCCESS
+                # # except Exception as err:
+                # #     done_success = False
 
                 # print(done_success)
                 # print(self._c.move_group.get_move_action().get_state())
-                sub_goal_state = self._c.move_group.get_move_action().get_state()
-                if sub_goal_state in [GoalStatus.PREEMPTED, GoalStatus.SUCCEEDED, GoalStatus.ABORTED,
-                                      GoalStatus.REJECTED, GoalStatus.RECALLED]:
-                    sub_goal_done = True
-                else:
-                    sub_goal_done = False
+                # sub_goal_state = self.move_group.get_move_action().get_state()
+                sub_goal_done=self.move_group.get_move_action().simple_state==SimpleGoalState.DONE
+
+                # if sub_goal_state in [GoalStatus.PREEMPTED, GoalStatus.SUCCEEDED, GoalStatus.ABORTED,
+                #                       GoalStatus.REJECTED, GoalStatus.RECALLED]:
+                #     sub_goal_done = True
+                # else:
+                #     sub_goal_done = False
                 # check if force goal finished
 
                 maxforce = goal.max_force
@@ -1016,7 +1096,8 @@ class L0_single_task_move_safe_srv():
                     break
 
                 # task finished, -> success
-                done = done_success or done_shut or sub_goal_done
+                # done = done_success or done_shut or sub_goal_done
+                done = done_shut or sub_goal_done
                 if (done):
                     success = True
                     rospy.loginfo(" done")
@@ -1132,12 +1213,15 @@ class ARC_ACTION_LIB_NODE():
         # tolerance=0.005
         # target.pose.orientation = Quaternion(q_new[0], q_new[1], q_new[2], q_new[3])
         if arm == "left":
-            self.lmove_group.moveToPose(pose_goal, "left_ee_link",
-                                        wait=wait)
-        elif arm == "right":
-            self.rmove_group.moveToPose(pose_goal, "right_ee_link",
+            self.lmove_group.moveToPose(pose_goal,
+                                        "left_ee_link",
                                         wait=wait)
 
+        elif arm == "right":
+            self.rmove_group.moveToPose(pose_goal,
+                                        "right_ee_link",
+                                        wait=wait)
+        pass
         # group=self.movegroup_rarm_group if arm == "right" else self.movegroup_larm_group
         # group.set_pose_target(pose_goal)
         # plan = group.go(wait=wait)
