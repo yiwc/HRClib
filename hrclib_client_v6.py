@@ -162,7 +162,48 @@ class odyssey_Interface():
         return dist
 
 
+    def set_grippers(self,**kwargs):
+        return self._L0_dual_set_gripper(**kwargs)
+    def arm_cart_move(self,**kwargs):
+        return self._L0_single_task_move_safe(**kwargs)
+    def arms_cart_move(self,**kwargs):
+        return self._L0_single_task_move_safe(**kwargs)
+    def single_move_relate(self,**kwargs):
+        return self._L1_single_task_move_safe_relate(**kwargs)
 
+    class Decorators(object):
+        @classmethod
+        def L_Action(self,fun):
+            def do_action(self,*args,**kwargs):
+                print("Call->",str(fun.__name__)," : ",args,kwargs)
+                fun(self,*args,**kwargs)
+            return do_action
+
+    @Decorators.L_Action
+    def _L1_single_task_move_safe_relate(self,arm,move,maxforce,time,wait=True,hard=False):
+        assert arm in ["left","right"]
+        if hard:
+            maxforce=[1000 for i in range(6)]
+
+
+        rmove=[0,0,0]
+        lmove=[0,0,0]
+        time=time
+        rmaxforce=lmaxforce=[1000 for i in range(6)]
+
+        if arm =="right":
+            rmove=move
+            rmaxforce=maxforce
+        elif arm =="left":
+            lmove=move
+            lmaxforce=maxforce
+
+
+        # def _L0_dual_task_move_safe_relate(self, rmove, lmove, time, rmaxforce, lmaxforce, wait=True, h
+
+        self._L0_dual_task_move_safe_relate(rmove,lmove,time,rmaxforce,lmaxforce,wait,hard)
+
+    @Decorators.L_Action
     def _L0_dual_set_gripper(self,value,wait=True):
         goal=arcmsg.dual_set_gripperGoal
         goal.value=value
@@ -171,7 +212,11 @@ class odyssey_Interface():
         if wait:
             self.client_L0_dual_set_gripper.wait_for_result()
         self.done_thr_set_grippers=True
-    def _L0_dual_jp_move_safe_relate(self, jp_r, jp_l, lmaxforce, rmaxforce, duration, wait=True):
+    @Decorators.L_Action
+    def _L0_dual_jp_move_safe_relate(self, jp_r, jp_l, lmaxforce, rmaxforce, duration, wait=True,hard=False):
+        if hard:
+            f=1000
+            lmaxforce=rmaxforce=[f for i in range(6)]
         self.done_thr_jprot_re = False
         mygoal = arcmsg.dual_jp_movo_safe_relateGoal()
         mygoal.jp_left_relate = jp_l
@@ -180,12 +225,19 @@ class odyssey_Interface():
         mygoal.r_max_force = rmaxforce
         mygoal.duration = duration
         # send a goal
-        self.client_L0_dual_jp_move_safe_relate.send_goal(mygoal)
         if (wait):
-            self.client_L0_dual_jp_move_safe_relate.wait_for_result()
+            self.client_L0_dual_jp_move_safe_relate.send_goal_and_wait(mygoal)
+        else:
+
+            self.client_L0_dual_jp_move_safe_relate.send_goal(mygoal)
         pass
         self.done_thr_jprot_re = True
-    def _L0_single_task_move_safe(self,arm,pos,orn,max_force,wait=True):
+
+    # @Decorators.L_Action
+    def _L0_single_task_move_safe(self,arm,pos,orn,maxforce,wait=True,hard=False):
+        if hard:
+            f=1000
+            maxforce=[f for i in range(6)]
         assert arm in ["left","right"]
         self.done_thr_single_task=False
         mygoal = arcmsg.single_task_move_safeGoal()
@@ -193,18 +245,24 @@ class odyssey_Interface():
         mygoal.pos = pos
         mygoal.orn = orn
         mygoal.arm = arm
-        mygoal.max_force = max_force
+        mygoal.max_force = maxforce
         # mygoal.duration = duration
         # send a goal
-        self.client_L0_single_task_move_safe.send_goal(mygoal)
         if(wait):
-            self.client_L0_single_task_move_safe.wait_for_result()
+            self.client_L0_single_task_move_safe.send_goal_and_wait(mygoal)
+        else:
+            self.client_L0_single_task_move_safe.send_goal(mygoal)
 
         self.done_thr_single_task=True
-    def _L0_dual_task_move_safe_relate(self,rmove,lmove,time,rmaxforce,lmaxforce,wait=True):
+
+    @Decorators.L_Action
+    def _L0_dual_task_move_safe_relate(self,rmove,lmove,time,rmaxforce,lmaxforce,wait=True,hard=False):
+
+        if hard:
+            f=1000
+            lmaxforce=rmaxforce=[f for i in range(6)]
 
         self.done_thr_taskmov_re=False
-
         mygoal = arcmsg.dual_task_move_safe_relateGoal()
         mygoal.pos_r=rmove
         mygoal.pos_l=lmove
@@ -213,12 +271,20 @@ class odyssey_Interface():
         mygoal.l_max_force=lmaxforce
 
         # send a goal
-        self.client_L0_dual_task_move_safe_relate.send_goal(mygoal)
         if wait:
-            self.client_L0_dual_task_move_safe_relate.wait_for_result()
+            self.client_L0_dual_task_move_safe_relate.send_goal_and_wait(mygoal)
+        else:
+            self.client_L0_dual_task_move_safe_relate.send_goal(mygoal)
+            # self.client_L0_dual_task_move_safe_relate.wait_for_result()
 
         self.done_thr_taskmov_re=True
-    def _L0_upper_jp_move_safe(self,jpl,jpr,jph,jplinear,duration,lforce,rforce,wait=True):
+
+    @Decorators.L_Action
+    def _L0_upper_jp_move_safe(self,jpl,jpr,jph,jplinear,duration,lforce,rforce,wait=True,hard=False):
+
+        if hard:
+            f=1000
+            lforce=rforce=[f for i in range(6)]
 
         mygoal = arcmsg.upper_jp_movo_safeGoal()
         mygoal.jp_left = jpl
@@ -230,7 +296,9 @@ class odyssey_Interface():
         mygoal.r_max_force = rforce
         self.client_L0_upper_jp_move_safe.send_goal(mygoal)
         if wait:
-            self.client_L0_dual_task_move_safe_relate.wait_for_result()
+            self.client_L0_upper_jp_move_safe.send_goal_and_wait(mygoal)
+        else:
+            self.client_L0_upper_jp_move_safe.send_goal(mygoal)
 
     # deprecated
     def eval_L0_upper_jp_move_safe(self):
@@ -318,6 +386,7 @@ def routine_test():
     # arc.client_L0_single_task_move_safe()
     force=50
     for i in range(3):
+        print(i)
         arc._L0_single_task_move_safe("right",[0.74,-0.45,1.17],
                                       [0., math.pi / 2, -math.pi / 2],
                                       [force for i in range(6)])
