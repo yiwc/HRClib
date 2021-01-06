@@ -70,6 +70,17 @@ class GlobalVariables(object):
         self.default_pose_ready_using_screw_driver = [0.642, -0.936, 0.767, -1.46,-0.928, 1.68, 2.39,
                    -0.477, +0.925, +0.55, +1.550,-1.166,-1.749,-0.704,
                    0.46, 0, -0.6]
+
+
+        self.default_pose_ready_insert_and_screw ={
+            'h':(-0.001517469179816544, -0.5982711315155029),
+            'lin':0.46091189980506897,
+            "l":(0.0148455251805375, 1.0166356471590665, 0.6636496236356031, 1.304654122206155, -0.35251198084942814,
+             -1.3975923189794133, -0.7291213085063291),
+            "r":(1.090617596451195, -1.194887676820795, -0.11256159107458785, -1.316655125026379, 0.5104717216901622, 1.5209456796141394, 2.7846955116894403)
+        }
+
+
 class myclient(object):
     def __init__(self,name,action,fbmsg):
         self._client=actionlib.SimpleActionClient(name,action)
@@ -227,16 +238,6 @@ class odyssey_Interface():
                              self.subscribe_force_callback_right)
 
     def subscribe_jointstates_callback(self,data):
-        # [linear_joint, pan_joint, tilt_joint,
-        # mid_body_joint,
-        # right_shoulder_pan_joint, right_shoulder_lift_joint,right_arm_half_joint,
-        # right_elbow_joint, right_wrist_spherical_1_joint, right_wrist_spherical_2_joint,
-        #  right_wrist_3_joint,
-        #  left_shoulder_pan_joint, left_shoulder_lift_joint, left_arm_half_joint,
-        #  left_elbow_joint, left_wrist_spherical_1_joint, left_wrist_spherical_2_joint,
-        #  left_wrist_3_joint,
-        #  right_gripper_finger1_joint, right_gripper_finger2_joint, right_gripper_finger3_joint,
-        #  left_gripper_finger1_joint, left_gripper_finger2_joint, left_gripper_finger3_joint]
 
         self.jointstates_pos = data.position
         self.jointstates_vel = data.velocity
@@ -255,9 +256,6 @@ class odyssey_Interface():
         self.left_arm_js_vel = data.velocity[11:18]
 
 
-        # print(self.jointstates_pos)
-        # print(self.jointstates_vel)
-        # print(self.jointstates_effort)
     def subscribe_jointstates(self):
         rospy.Subscriber("/joint_states", JointState,
                          self.subscribe_jointstates_callback)
@@ -291,14 +289,14 @@ class odyssey_Interface():
         return dist
 
 
-    def set_grippers(self,**kwargs):
-        return self._L0_dual_set_gripper(**kwargs)
-    def arm_cart_move(self,**kwargs):
-        return self._L0_single_task_move_safe(**kwargs)
-    def arms_cart_move(self,**kwargs):
-        return self._L0_single_task_move_safe(**kwargs)
-    def single_move_relate(self,**kwargs):
-        return self._L1_single_task_move_safe_relate(**kwargs)
+    def set_grippers(self,*args,**kwargs):
+        return self._L0_dual_set_gripper(*args,**kwargs)
+    def arm_cart_move(self,*args,**kwargs):
+        return self._L0_single_task_move_safe(*args,**kwargs)
+    def arms_cart_move(self,*args,**kwargs):
+        return self._L0_single_task_move_safe(*args,**kwargs)
+    def single_move_relate(self,*args,**kwargs):
+        return self._L1_single_task_move_safe_relate(*args,**kwargs)
 
     class Decorators(object):
         @classmethod
@@ -511,19 +509,72 @@ def routine_test_all():
     print("motion finished", "_L0_dual_jp_move_safe_relate")
     rospy.spin()
 
-def routine_test():
+def rountine_tune_pose():
     # arc.client_L0_single_task_move_safe()
+
     force=50
-    for i in range(3):
-        print(i)
-        arc._L0_single_task_move_safe("right",[0.74,-0.45,1.17],
-                                      [0., math.pi / 2, -math.pi / 2],
-                                      [force for i in range(6)])
-        arc._L0_single_task_move_safe("right",[0.74,-0.25,1.17],
-                                      [0., math.pi / 2, -math.pi / 2],
-                                      [force for i in range(6)])
+    # for i in range(3):
+    #     print(i)
+    arc._L0_single_task_move_safe("right",[0.74,-0.25,1.17],
+                                  [0, math.pi / 2, -math.pi / 2],
+                                  [force for i in range(6)])
+    arc._L0_single_task_move_safe("right",[0.74,-0.25,1.17],
+                                  [-0.3, math.pi / 2, -math.pi / 2],
+                                  [force for i in range(6)])
+    arc._L0_single_task_move_safe("right",[0.74,-0.25,1.17],
+                                  [-0.8, math.pi / 2, -math.pi / 2],
+                                  [force for i in range(6)])
+    arc._L0_single_task_move_safe("right",[0.74,-0.25,1.17],
+                                  [-1.5, math.pi / 2, -math.pi / 2],
+                                  [force for i in range(6)])
+    arc._L0_single_task_move_safe("right",[0.74,-0.25,1.17],
+                                  [-2*math.pi+math.pi/2+0.2, math.pi / 2, -math.pi / 2],
+                                  [force for i in range(6)])
+
+    # arc.head_js_pos
+    # (-0.001517469179816544, -0.5982711315155029)
+    # arc.linear_js_pos
+    # (0.46091189980506897,)
+    # arc.left_arm_js_pos
+    # (0.0148455251805375, 1.0166356471590665, 0.6636496236356031, 1.304654122206155, -0.35251198084942814,
+    #  -1.3975923189794133, -0.7291213085063291)
+    # arc.right_arm_js_pos
+    # (1.016942243579562, -1.142176661471238, -0.013962420963067323, -1.5405055325563353, 0.5841524008839754,
+    #  1.2464280997132076, 2.7099240682921577)
+
+    # arc._L0_single_task_move_safe("right",[0.74,-0.25,1.17],
+    #                               [0.2, math.pi / 2, -math.pi / 2],
+    #                               [force for i in range(6)])
+    # arc._L0_single_task_move_safe("right",[0.74,-0.25,1.17],
+    #                               [0.3, math.pi / 2, -math.pi / 2],
+    #                               [force for i in range(6)])
+    arc._L0_single_task_move_safe("left",[0.74,0.17,1.1],
+                                  [-0.2+math.pi, 0, -math.pi / 2],
+                                  [force for i in range(6)])
+    arc._L0_single_task_move_safe("left",[0.74,0.17,1.4],
+                                  [-0.2+math.pi, 0, -math.pi / 2],
+                                  [force for i in range(6)])
+    #jp=(0.4597393572330475, -0.0015124091878533363, -0.598263680934906, 0.22986967861652374,
+    # 1.723732347134332, -1.003162315730192, 0.5341834760613051,
+    #    -1.551505852596962, -0.44545550394486666, 1.1927813827146514, -0.9088847486657059, -0.4251632484133854, 1.1932325222033107, 0.11834501988872326,
+    #    1.2943764509273212, 0.39443652799389284, -1.4401347194967749,
+    #    -1.310207079395079, 0.8907163779515354, 0.8907163779515354, 0.8907163779515354, 0.8907163779515354, 0.8907163779515354, 0.8907163779515354)
+
+
+    # arc._L0_dual_jp_move_safe_relate(jp_r=[0,0,0,0,0,0,0],jp_l=[0,0,0,0,0,0,0],
+    #                                  lmaxforce=[10,10,10,10,10,10,10])
+
+
+    # arc._L0_upper_jp_move_safe(
+    #     jp_left, jp_right, jp_head, jp_linear, duration, l_max_force, r_max_force, wait=True, hard=True
+    # )
+
 if __name__=="__main__":
     print("Start")
 
     arc=odyssey_Interface()
-    routine_test()
+
+    print(arc.right_arm_js_pos)
+    # arc.single_move_relate("right",[0,0,0.1],[20 for i in range(6)],2)
+
+    # rountine_tune_pose()
