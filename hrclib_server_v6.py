@@ -1410,7 +1410,7 @@ class ARC_ACTION_LIB_NODE():
             rpose=self.movegroup_rarm_group.get_current_pose()
             self.lpose=lpose
             self.rpose=rpose
-            rospy.Rate(30)
+            rospy.Rate(20)
 
 
 if __name__=="__main__":
