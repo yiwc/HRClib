@@ -1,9 +1,10 @@
 # Python3 Interfaces for ARC actions libraries
 # It connects to py2 servers, with py3 clients
 # Email: yiwen.chen@u.nus.edu
+import movo_arc_lib.msg as arcmsg
 import rospy
 import actionlib
-import movo_arc_lib.msg as arcmsg
+# import movo_arc_lib.msg as arcmsg
 from sensor_msgs.msg import JointState
 from actionlib_msgs.msg import GoalStatus
 import threading
@@ -14,6 +15,8 @@ import time
 
 from geometry_msgs.msg import Pose2D, PoseStamped, Quaternion, Vector3
 from movo_msgs.msg import JacoCartesianVelocityCmd
+
+from movo_action_clients.gripper_action_client import GripperActionClient
 
 # human robot collaboration library
 # HRClib
@@ -81,7 +84,8 @@ class GlobalVariables(object):
         }
         self.default_insert1={'h': (-0.0015422365395352244, -0.5958293080329895), 'lin': 0.46071183681488037, 'l': (0.01712263506317724, 1.0175831998749165, 0.6643756013487594, 1.3094861616879947, -0.3512773393680675, -1.3939702867388508, -0.7274227443630785), 'r': (1.6284348559513724, -1.0733641741710622, -0.5672234847826694, -1.2331535732597076, 0.19970890218265858, 1.4587454218264666, 2.4094446625045887)}
 
-
+        self._gripper_closed = 0.00
+        self._gripper_open = 0.165
 
 class myclient(object):
     def __init__(self,name,action,fbmsg):
@@ -111,7 +115,10 @@ class odyssey_Interface():
     # simple interface name with L0...
     # ICURAS interface name with i_L0...
     def __init__(self):
-        self.gval=GlobalVariables()
+        self.g=self.gval=GlobalVariables()
+        # self.gval
+
+
         rospy.init_node("odyssey_Interface_py3_node")
 
         self.client_L0_upper_jp_move_safe=myclient(name="L0_upper_jp_move_safe",
@@ -135,6 +142,12 @@ class odyssey_Interface():
                                                  action=arcmsg.single_task_move_safeAction,
                                                  fbmsg=arcmsg.single_task_move_safeFeedback)
 
+        self.client_L0_single_set_gripper=myclient(name="L0_single_set_gripper",
+                                                   action=arcmsg.single_set_gripperAction,
+                                                   fbmsg=arcmsg.single_set_gripperFeedback)
+
+        self._lgripper = GripperActionClient('left')
+        self._rgripper = GripperActionClient('right')
 
         self.subscribe_force("right")
         self.subscribe_force("left")
@@ -290,15 +303,37 @@ class odyssey_Interface():
         dist = sum([(v - l1[i]) ** 2 for i, v in enumerate(l2)]) ** 0.5
         return dist
 
+    class Decorators(object):
+        @classmethod
+        def L_Action(self,fun):
+            def do_action(self,*args,**kwargs):
+                print("Call->",str(fun.__name__)," : ",args,kwargs)
+                fun(self,*args,**kwargs)
+            return do_action
 
+        @classmethod
+        def Rename(self,fun):
+            def do_action(self,*args,**kwargs):
+                print("Renamed Call->",str(fun.__name__)," : ",args,kwargs)
+                fun(self,*args,**kwargs)
+            return do_action
+
+    @Decorators.Rename
     def set_grippers(self,*args,**kwargs):
         return self._L0_dual_set_gripper(*args,**kwargs)
+    @Decorators.Rename
+    def grip(self,rl,v):
+        return self._L0_gripper(rl,v)
+    @Decorators.Rename
     def arm_cart_move(self,*args,**kwargs):
         return self._L0_single_task_move_safe(*args,**kwargs)
+    @Decorators.Rename
     def arms_cart_move(self,*args,**kwargs):
         return self._L0_single_task_move_safe(*args,**kwargs)
+    @Decorators.Rename
     def single_move_relate(self,*args,**kwargs):
         return self._L1_single_task_move_safe_relate(*args,**kwargs)
+
 
     def get_jp_dict(self):
         dic = {
@@ -309,14 +344,6 @@ class odyssey_Interface():
         }
         print(dic)
         return dic
-
-    class Decorators(object):
-        @classmethod
-        def L_Action(self,fun):
-            def do_action(self,*args,**kwargs):
-                print("Call->",str(fun.__name__)," : ",args,kwargs)
-                fun(self,*args,**kwargs)
-            return do_action
 
     @Decorators.L_Action
     def _L1_single_task_move_safe_relate(self,arm,move,maxforce,time,wait=True,hard=False):
@@ -341,7 +368,6 @@ class odyssey_Interface():
         # def _L0_dual_task_move_safe_relate(self, rmove, lmove, time, rmaxforce, lmaxforce, wait=True, h
 
         self._L0_dual_task_move_safe_relate(rmove,lmove,time,rmaxforce,lmaxforce,wait,hard)
-
     @Decorators.L_Action
     def _L0_dual_set_gripper(self,value,wait=True):
         goal=arcmsg.dual_set_gripperGoal
@@ -371,8 +397,7 @@ class odyssey_Interface():
             self.client_L0_dual_jp_move_safe_relate.send_goal(mygoal)
         pass
         self.done_thr_jprot_re = True
-
-    # @Decorators.L_Action
+    @Decorators.L_Action
     def _L0_single_task_move_safe(self,arm,pos,orn,maxforce,wait=True,hard=False):
         if hard:
             f=1000
@@ -393,7 +418,6 @@ class odyssey_Interface():
             self.client_L0_single_task_move_safe.send_goal(mygoal)
 
         self.done_thr_single_task=True
-
     @Decorators.L_Action
     def _L0_dual_task_move_safe_relate(self,rmove,lmove,time,rmaxforce,lmaxforce,wait=True,hard=False):
 
@@ -417,7 +441,6 @@ class odyssey_Interface():
             # self.client_L0_dual_task_move_safe_relate.wait_for_result()
 
         self.done_thr_taskmov_re=True
-
     @Decorators.L_Action
     def _L0_upper_jp_move_safe(self,jpl,jpr,jph,jplinear,duration,lforce,rforce,wait=True,hard=False):
 
@@ -438,6 +461,25 @@ class odyssey_Interface():
             self.client_L0_upper_jp_move_safe.send_goal_and_wait(mygoal)
         else:
             self.client_L0_upper_jp_move_safe.send_goal(mygoal)
+    @Decorators.L_Action
+    def _L0_gripper(self,rl,value): #0 close # 1 open
+        # print "do close gripper"
+        assert rl in ["right","left","r","l"]
+
+        arm=0 if rl in ['l',"left"] else 1
+        # arm=1 if rl in ['r',"right"]
+
+        mygoal=arcmsg.single_set_gripperGoal
+        mygoal.arm=arm
+        mygoal.value=value
+        self.client_L0_single_set_gripper.send_goal_and_wait(mygoal)
+        # v=float(value)*(self.g._gripper_open-self.g._gripper_closed)+self.g._gripper_closed
+        # if(rl in ["left","l"]):
+        #     self._lgripper.command(v, block=True)
+        # elif(rl in ["right","r"]):
+        #     self._rgripper.command(v, block=True)
+
+
 
     # deprecated
     def eval_L0_upper_jp_move_safe(self):
@@ -588,6 +630,10 @@ if __name__=="__main__":
 
     print(arc.right_arm_js_pos)
     print(arc.get_jp_dict())
+    # arc.grip("l",0)
+    # arc.grip("l",1)
+    # arc.grip("l",0)
+    arc.grip("l",0)
     # arc.single_move_relate("right",[0,0.3,0],[20 for i in range(6)],2)
 
     # rountine_tune_pose()
