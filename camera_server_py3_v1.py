@@ -61,7 +61,7 @@ class eyeinhand_camera_server(object):
                 self.imgs[camid]=frame
                 if not ret:
                     print("failed to grab frame")
-                    break
+                    # break
 
                 rospy.Rate(10)
             except Exception as err:

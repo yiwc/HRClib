@@ -508,8 +508,8 @@ class L0_dual_set_gripper_srv():
                                               auto_start=False)
 
 
-        self._lgripper = GripperActionClient('left')
-        self._rgripper = GripperActionClient('right')
+        self._lgripper = self._c._lgripper #GripperActionClient('left')
+        self._rgripper = self._c._rgripper #GripperActionClient('right')
 
         self._gripper_closed = 0.00
         self._gripper_open = 0.165
@@ -614,6 +614,133 @@ class L0_dual_set_gripper_srv():
 
         # cancel all sub golad
         self.cancel_all_sub_goals()
+
+class L0_single_set_gripper_srv():
+    # This is a action server
+    _feedback = arclib_msg.single_set_gripperFeedback()
+    _result = arclib_msg.single_set_gripperResult()
+    def __init__(self,arclib_node):
+        self._c=arclib_node
+        self._action_name="L0_single_set_gripper"
+        self._as=actionlib.SimpleActionServer(self._action_name,
+                                              arclib_msg.single_set_gripperAction,
+                                              execute_cb=self.execute_cb,
+                                              auto_start=False)
+
+
+        self._lgripper = self._c._lgripper #GripperActionClient('left')
+        self._rgripper = self._c._rgripper #GripperActionClient('right')
+
+        self._gripper_closed = 0.00
+        self._gripper_open = 0.165
+
+        self._as.register_preempt_callback(self.preempt_cb)
+        self._as.start()
+        print(self._action_name,"Started!")
+
+    def _goal_check(self,goal):
+        # fake check, not finished yet. Bug Here
+        # TODO not finished yet.
+        # for i in check_list:
+        #     pi=3.1415
+        #     if(i<pi and i > -pi):
+        #         pass
+        #     else:
+        #         return False
+        return True
+    def _pub_feedback(self):
+        self._feedback.NotImplemented=False
+        self._as.publish_feedback(self._feedback)
+        pass
+
+    def cancel_all_sub_goals(self):
+        # TODO it needs some time to publish cancel the goal
+        freq = rospy.Rate(5)
+        freq.sleep()
+        # self._c.move_group.get_move_action().cancel_all_goals()
+        self._rgripper._client.cancel_all_goals()
+        self._lgripper._client.cancel_all_goals()
+
+    def preempt_cb(self):
+        print("This action has been preempted")
+        # cancel all sub goals
+        self.cancel_all_sub_goals()
+
+    def _get_jps_from_goal(self,goal):
+        pass
+
+
+    def send_sub_goal(self,goal):
+        # print "do close gripper"
+        value=goal.value
+        arm=goal.arm
+        arm="left" if arm==0 else "right"
+
+        v = float(value) * (self._gripper_open - self._gripper_closed) + self._gripper_closed
+        if arm=="left":
+            self._lgripper.command(v, block=True)
+        else:
+            self._rgripper.command(v, block=True)
+
+    def execute_cb(self,goal):
+        success=True
+        rospy.loginfo("goal get"+str(goal))
+        self.goal_start_time=time.time()
+        if(not(self._goal_check(goal))):
+            rospy.loginfo("Fail, the goal was rejected")
+            success=False
+
+        self._pub_feedback()
+
+        if(success==True):
+
+            self.send_sub_goal(goal)
+            # while(not rospy.is_shutdown()):
+            # 
+            #     if self._as.is_preempt_requested():
+            #         rospy.loginfo("%s: Preempted" % self._action_name)
+            #         self._as.set_preempted()
+            #         rospy.loginfo(" fail, preemted")
+            #         success = False
+            #         break
+            # 
+            #     # update feedback and publish
+            #     self._pub_feedback()
+            # 
+            #     # both sub goal finished
+            #     done_success=self._c.tool_is_dualaction_success(act1=self._lgripper._client,act2=self._rgripper._client)
+            #     sub_goal_done=self._c.tool_is_dualgoal_done(act1=self._lgripper._client,act2=self._rgripper._client)
+            # 
+            #     # task finished, -> success
+            #     done_shut=rospy.is_shutdown()
+            #     # print(done_success,sub_goal_done)
+            #     done = done_success or sub_goal_done or done_shut
+            # 
+            #     if (done):
+            #         success= True
+            #         rospy.loginfo(" done")
+            #         break
+            # 
+            # if(rospy.is_shutdown()):
+            #     success=False
+        self._set_success_and_abort(success)
+
+    def _set_success_and_abort(self,success):
+        if success:
+            self._result.success=True
+            # rospy.loginfo("%s:Succeeded!",%self._action_name)
+            rospy.loginfo("Succeeded!"+str(self._action_name))
+            self._as.set_succeeded(self._result)
+        else:
+            self._result.success=False
+            # rospy.loginfo("%s:Succeeded!",%self._action_name)
+            rospy.loginfo("Aborted!"+str(self._action_name))
+            self._as.set_aborted(self._result)
+
+        # cancel all sub golad
+        self.cancel_all_sub_goals()
+
+
 class L0_dual_task_move_safe_relate_srv():
     # This is a action server
     _feedback = arclib_msg.dual_task_move_safe_relateFeedback()
@@ -1277,6 +1404,8 @@ class ARC_ACTION_LIB_NODE():
         self.movegroup_larm_group = moveit_commander.MoveGroupCommander("left_arm")
 
 
+        self._lgripper = GripperActionClient('left')
+        self._rgripper = GripperActionClient('right')
         # # time.sleep(15)
         # # time.sleep(15)
 
@@ -1292,6 +1421,7 @@ class ARC_ACTION_LIB_NODE():
         self.Server_L0_dual_set_gripper=L0_dual_set_gripper_srv(self)
         self.Server_L0_dual_task_move_safe=L0_dual_task_move_safe_srv(self)
         self.Server_L0_single_task_move_safe=L0_single_task_move_safe_srv(self)
+        self.Server_L0_single_set_gripper=L0_single_set_gripper_srv(self)
     def _init_start_update_sensors(self):
         self._subscribe_force("right")
         self._subscribe_force("left")
