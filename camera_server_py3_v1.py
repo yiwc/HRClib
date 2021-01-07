@@ -44,26 +44,28 @@ class eyeinhand_camera_server(object):
     def _pub(self):
 
         print("=> publisher running")
+
+        r=rospy.Rate(10)
         while True:
             for i,img in enumerate(self.imgs):
                 if img is None:
                     continue
                 # self.img_pubs[i].publish(img)#self.bridge.cv2_to_imgmsg(img, "bgr8"))
                 self.img_pubs[i].publish(self.bridge.cv2_to_imgmsg(img))
-                # time.sleep(1)
-                rospy.Rate(10)
+                r.sleep()
     def _get(self,cam,camid):
         print("=> getting img ",camid," running")
+        r=rospy.Rate(10)
         while True:
             try:
                 ret, frame = cam.read()
                 # print(frame.shape,camid)
                 self.imgs[camid]=frame
                 if not ret:
-                    print("failed to grab frame")
+                    print("failed to grab frame,camid=",camid,", Check the camera connection 0 left eye, 1 right eye")
                     # break
-
-                rospy.Rate(10)
+                r.sleep()
+                # rospy.Rate(10)
             except Exception as err:
                 print (err)
                 pass
