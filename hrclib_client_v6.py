@@ -79,6 +79,8 @@ class GlobalVariables(object):
              -1.3975923189794133, -0.7291213085063291),
             "r":(1.090617596451195, -1.194887676820795, -0.11256159107458785, -1.316655125026379, 0.5104717216901622, 1.5209456796141394, 2.7846955116894403)
         }
+        self.default_insert1={'h': (-0.0015422365395352244, -0.5958293080329895), 'lin': 0.46071183681488037, 'l': (0.01712263506317724, 1.0175831998749165, 0.6643756013487594, 1.3094861616879947, -0.3512773393680675, -1.3939702867388508, -0.7274227443630785), 'r': (1.6284348559513724, -1.0733641741710622, -0.5672234847826694, -1.2331535732597076, 0.19970890218265858, 1.4587454218264666, 2.4094446625045887)}
+
 
 
 class myclient(object):
@@ -297,6 +299,16 @@ class odyssey_Interface():
         return self._L0_single_task_move_safe(*args,**kwargs)
     def single_move_relate(self,*args,**kwargs):
         return self._L1_single_task_move_safe_relate(*args,**kwargs)
+
+    def get_jp_dict(self):
+        dic = {
+            'h': self.head_js_pos,
+            'lin': self.linear_js_pos[0],
+            "l": self.left_arm_js_pos,
+            "r": self.right_arm_js_pos
+        }
+        print(dic)
+        return dic
 
     class Decorators(object):
         @classmethod
@@ -575,6 +587,7 @@ if __name__=="__main__":
     arc=odyssey_Interface()
 
     print(arc.right_arm_js_pos)
-    # arc.single_move_relate("right",[0,0,0.1],[20 for i in range(6)],2)
+    print(arc.get_jp_dict())
+    # arc.single_move_relate("right",[0,0.3,0],[20 for i in range(6)],2)
 
     # rountine_tune_pose()
