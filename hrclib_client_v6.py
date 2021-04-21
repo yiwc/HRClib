@@ -1,19 +1,18 @@
 # Python3 Interfaces for ARC actions libraries
 # It connects to py2 servers, with py3 clients
 # Email: yiwen.chen@u.nus.edu
+# from archieved import movo_arc_lib as arcmsg
 import movo_arc_lib.msg as arcmsg
 import rospy
 import actionlib
 # import movo_arc_lib.msg as arcmsg
 from sensor_msgs.msg import JointState
 from actionlib_msgs.msg import GoalStatus
-import threading
-import numpy as np
 import math
 import time
 #mssage
 
-from geometry_msgs.msg import Pose2D, PoseStamped, Quaternion, Vector3
+from geometry_msgs.msg import PoseStamped
 from movo_msgs.msg import JacoCartesianVelocityCmd
 
 from movo_action_clients.gripper_action_client import GripperActionClient
@@ -75,13 +74,35 @@ class GlobalVariables(object):
                    0.46, 0, -0.6]
 
 
-        self.default_pose_ready_insert_and_screw ={
+        self.default_pose_ready_insert_and_screw = {
             'h':(-0.001517469179816544, -0.5982711315155029),
             'lin':0.46091189980506897,
             "l":(0.0148455251805375, 1.0166356471590665, 0.6636496236356031, 1.304654122206155, -0.35251198084942814,
              -1.3975923189794133, -0.7291213085063291),
             "r":(1.090617596451195, -1.194887676820795, -0.11256159107458785, -1.316655125026379, 0.5104717216901622, 1.5209456796141394, 2.7846955116894403)
         }
+
+
+        # self.default_pose_screw_rightarm_observe = {
+        #     'h': (0.001755023142322898, -0.6001875400543213),
+        #     'lin': 0.4609679579734802,
+        #     'l': (
+        #         0.0038434740852024696, 1.0431375621147718, 0.6896942738321421, 1.1683924197678146, -0.32924767083093087,
+        #         -1.5484046015075648, -0.7592577059806938),
+        #     'r': (
+        #         0.6128764574532433, -0.8213907855298692, -0.6226357444258932, -1.5857084310026863, 0.6403175361673652,
+        #         1.107163416829694, -2.619071925600757)}
+
+        # self.default_pose_screw_rightarm_observe ={'h': (2.7164242055732757e-05, -0.598494291305542), 'lin': 0.4602239727973938, 'l': (-0.04788406500211284, 0.8859897525113762, 0.6704758381416944, 1.0332433860329095, -0.3700395422742715, -1.5152507759391138, -0.8287116156294152), 'r': (0.6064678266060763, -0.8965656978322989, -0.682343682907415, -1.4767940640080972, 0.5806468819411048, 1.285365911695147, -2.581031332590067)}
+        # self.default_pose_screw_rightarm_observe ={'h': (7.456851108145202e-06, -0.598491907119751), 'lin': 0.45954349637031555, 'l': (-0.13673563692145496, 0.9113260018579541, 0.8510354968879774, 1.2026087134531527, -0.3103091333710517, -1.3140966261671398, -0.8170074886917078), 'r': (0.24970810381797293, -0.9000666894013171, -0.409429692167361, -1.6708153362744576, 0.6213650171117617, 1.0436973585759066, -2.4768125180714504)}
+        # higher slope
+        self.default_pose_screw_rightarm_observe ={'h': (0.0015667376574128866, -0.596684455871582), 'lin': 0.45839282870292664, 'l': (-0.13892220036732894, 0.9125020537953331, 0.8590207191004708, 1.2039381634693203, -0.32134660450888575, -1.3119943268026313, -0.8090667412694188), 'r': (0.3378900613319167, -0.8501308210656773, -0.39544959447255756, -1.7052754423575922, 0.7194772032508259, 1.0104664344938978, -2.55757367707643)}
+        # higher slope
+        # self.default_pose_screw_rightarm_observe ={'h': (0.0030120352748781443, -0.5952045321464539), 'lin': 0.45910343527793884, 'l': (-0.1285867967494898, 0.9087643072054069, 0.8542893471078359, 1.208193894891267, -0.3167132368443646, -1.3074748092747124, -0.8190381490228926), 'r': (0.6501095800214234, -0.8597435010203184, -0.6368457727913106, -1.5541529015624465, 0.6513479499283097, 1.2091808623912503, -2.610791625139484)}
+        # lower slope
+        # self.default_pose_screw_rightarm_observe ={'h': (7.456851108145202e-06, -0.598491907119751), 'lin': 0.45954349637031555, 'l': (-0.13673563692145496, 0.9113260018579541, 0.8510354968879774, 1.2026087134531527, -0.3103091333710517, -1.3140966261671398, -0.8170074886917078), 'r': (0.24970810381797293, -0.9000666894013171, -0.409429692167361, -1.6708153362744576, 0.6213650171117617, 1.0436973585759066, -2.4768125180714504)}
+        # lower slope 2
+        # {'h': (0.0015667376574128866, -0.596684455871582), 'lin': 0.45839282870292664, 'l': (-0.13892220036732894, 0.9125020537953331, 0.8590207191004708, 1.2039381634693203, -0.32134660450888575, -1.3119943268026313, -0.8090667412694188), 'r': (0.3378900613319167, -0.8501308210656773, -0.39544959447255756, -1.7052754423575922, 0.7194772032508259, 1.0104664344938978, -2.55757367707643)}
         self.default_insert1={'h': (-0.0015422365395352244, -0.5958293080329895), 'lin': 0.46071183681488037, 'l': (0.01712263506317724, 1.0175831998749165, 0.6643756013487594, 1.3094861616879947, -0.3512773393680675, -1.3939702867388508, -0.7274227443630785), 'r': (1.6284348559513724, -1.0733641741710622, -0.5672234847826694, -1.2331535732597076, 0.19970890218265858, 1.4587454218264666, 2.4094446625045887)}
 
         self._gripper_closed = 0.00
@@ -119,7 +140,7 @@ class odyssey_Interface():
         # self.gval
 
 
-        rospy.init_node("odyssey_Interface_py3_node")
+        # rospy.init_node("odyssey_Interface_py3_node")
 
         self.client_L0_upper_jp_move_safe=myclient(name="L0_upper_jp_move_safe",
                                                    action=arcmsg.upper_jp_movo_safeAction,
@@ -184,8 +205,6 @@ class odyssey_Interface():
             time.sleep(1)
             # print(self.jointstates_effort)
             print("Wait till all states got first updated")
-
-
 
     @property
     def _states(self):
@@ -275,6 +294,10 @@ class odyssey_Interface():
         rospy.Subscriber("/joint_states", JointState,
                          self.subscribe_jointstates_callback)
 
+    def get_lpose(self):
+        return self.lpose
+    def get_rpose(self):
+        return self.rpose
     def subscribe_lpose_callback(self,data):
         self.lpose=[
             data.pose.position.x,#xyz xyzw
@@ -316,7 +339,7 @@ class odyssey_Interface():
             def do_action(self,*args,**kwargs):
                 print("Renamed Call->",str(fun.__name__)," : ",args,kwargs)
                 fun(self,*args,**kwargs)
-            return do_action
+            return fun
 
     @Decorators.Rename
     def set_grippers(self,*args,**kwargs):
@@ -325,15 +348,28 @@ class odyssey_Interface():
     def grip(self,rl,v):
         return self._L0_gripper(rl,v)
     @Decorators.Rename
-    def arm_cart_move(self,*args,**kwargs):
-        return self._L0_single_task_move_safe(*args,**kwargs)
+    def arm_cart_move(self,arm,pos,orn,maxforce,wait=True,hard=False):
+        return self._L0_single_task_move_safe(arm,pos,orn,maxforce,wait,hard)
     @Decorators.Rename
     def arms_cart_move(self,*args,**kwargs):
         return self._L0_single_task_move_safe(*args,**kwargs)
     @Decorators.Rename
-    def single_move_relate(self,*args,**kwargs):
-        return self._L1_single_task_move_safe_relate(*args,**kwargs)
-
+    def single_move_relate(self,arm,move,maxforce,time,wait=True,hard=False):
+        return self._L1_single_task_move_safe_relate(arm,move,maxforce,time,wait,hard)
+    @Decorators.Rename
+    def dual_move_relate(self,rmove,lmove,time,rmaxforce,lmaxforce,wait=True,hard=False):
+        self._L0_dual_task_move_safe_relate(rmove,lmove,time,rmaxforce,lmaxforce,wait,hard)
+    @Decorators.Rename
+    def go_upper_default_jp(self,posdict,hard,duration=30,f=15):
+        pos=posdict
+        if hard:
+            f=1000
+        self._L0_upper_jp_move_safe(jpl=pos["l"], jpr=pos["r"], jplinear=pos["lin"],
+                                   jph=pos["h"], wait=True, hard=False,
+                                   lforce=[f for i in range(6)],
+                                   rforce=[f for i in range(6)],
+                                   duration=duration
+                                   )
 
     def get_jp_dict(self):
         dic = {
@@ -368,14 +404,18 @@ class odyssey_Interface():
         # def _L0_dual_task_move_safe_relate(self, rmove, lmove, time, rmaxforce, lmaxforce, wait=True, h
 
         self._L0_dual_task_move_safe_relate(rmove,lmove,time,rmaxforce,lmaxforce,wait,hard)
+
     @Decorators.L_Action
     def _L0_dual_set_gripper(self,value,wait=True):
         goal=arcmsg.dual_set_gripperGoal
         goal.value=value
         self.done_thr_set_grippers=False
-        self.client_L0_dual_set_gripper.send_goal(goal)
         if wait:
-            self.client_L0_dual_set_gripper.wait_for_result()
+            self.client_L0_dual_set_gripper.send_goal_and_wait(goal)
+        else:
+            self.client_L0_dual_set_gripper.send_goal(goal)
+        # if wait:
+        #     self.client_L0_dual_set_gripper.wait_for_result()
         self.done_thr_set_grippers=True
     @Decorators.L_Action
     def _L0_dual_jp_move_safe_relate(self, jp_r, jp_l, lmaxforce, rmaxforce, duration, wait=True,hard=False):
@@ -479,8 +519,6 @@ class odyssey_Interface():
         # elif(rl in ["right","r"]):
         #     self._rgripper.command(v, block=True)
 
-
-
     # deprecated
     def eval_L0_upper_jp_move_safe(self):
         return self.E0_getjp()
@@ -569,6 +607,7 @@ def rountine_tune_pose():
     force=50
     # for i in range(3):
     #     print(i)
+
     arc._L0_single_task_move_safe("right",[0.74,-0.25,1.17],
                                   [0, math.pi / 2, -math.pi / 2],
                                   [force for i in range(6)])
@@ -622,18 +661,79 @@ def rountine_tune_pose():
     # arc._L0_upper_jp_move_safe(
     #     jp_left, jp_right, jp_head, jp_linear, duration, l_max_force, r_max_force, wait=True, hard=True
     # )
+def rountine_tune_pose_screw_and_rarm_observe():
 
+    force=25
+    arc._L0_single_task_move_safe("right",[0.739, 0.056-0.03, 1.253-0.06],
+                                  [-2*math.pi+0.2,
+                                   math.pi / 2+math.pi/4+0.1,
+                                   -math.pi / 2],
+                                  [force for i in range(6)])
+
+    arc._L0_single_task_move_safe("left",[0.799-0.05, 0.178-0.04, 1.5],
+                                  [+math.pi, 0-0.1, -math.pi / 2],
+                                  [force for i in range(6)])
+
+    # pos=arc.gval.default_pose_screw_rightarm_observe
+    # arc.go_upper_default_jp(arc.gval.default_pose_screw_rightarm_observe)
+    # arc._L0_upper_jp_move_safe(jpl=pos["l"],jpr=pos["r"],jplinear=pos["lin"],
+    #                            jph=pos["h"],wait=True,hard=False,
+    #                            lforce=[15 for i in range(6)],
+    #                            rforce=[15 for i in range(6)],
+    #                            duration=30
+    #                            )
+
+def rountine_tune_pose_pickbolt():
+
+    force=15
+    arc._L0_single_task_move_safe("right", [0.74, -0.35, 1.17],
+                                [0.2+math.pi/2, math.pi / 2, -math.pi / 2],
+                                [force for i in range(6)])
+    # arc._L0_single_task_move_safe("left",[0.799-0.05, 0.178-0.04, 1.5],
+    #                               [+math.pi, 0-0.1, -math.pi / 2],
+    #                               [force for i in range(6)])
+
+    # pos=arc.gval.default_pose_screw_rightarm_observe
+    # arc.go_upper_default_jp(arc.gval.default_pose_screw_rightarm_observe)
+    # arc._L0_upper_jp_move_safe(jpl=pos["l"],jpr=pos["r"],jplinear=pos["lin"],
+    #                            jph=pos["h"],wait=True,hard=False,
+    #                            lforce=[15 for i in range(6)],
+    #                            rforce=[15 for i in range(6)],
+    #                            duration=30
+    #                            )
+
+def pickbolt():
+    # action sequence
+    pass
 if __name__=="__main__":
+
     print("Start")
 
+    rospy.init_node("test")
     arc=odyssey_Interface()
+    # rountine_tune_pose_screw_and_rarm_observe()
+    # rountine_tune_pose_pickbolt()
+    # routine_test_all()
+    rountine_tune_pose_screw_and_rarm_observe()
 
-    print(arc.right_arm_js_pos)
+    # print(arc.get_rpose())
+    print(arc.get_lpose())
     print(arc.get_jp_dict())
+
+    # {'h': (0.001755023142322898, -0.6001875400543213), 'lin': 0.4609679579734802, 'l': (
+    # 0.0038434740852024696, 1.0431375621147718, 0.6896942738321421, 1.1683924197678146, -0.32924767083093087,
+    # -1.5484046015075648, -0.7592577059806938), 'r': (
+    # 0.6128764574532433, -0.8213907855298692, -0.6226357444258932, -1.5857084310026863, 0.6403175361673652,
+    # 1.107163416829694, -2.619071925600757)}
+
+    # print(arc.right_arm_js_pos)
+    # print(arc.get_jp_dict())
     # arc.grip("l",0)
     # arc.grip("l",1)
     # arc.grip("l",0)
-    arc.grip("l",0)
-    # arc.single_move_relate("right",[0,0.3,0],[20 for i in range(6)],2)
-
+    # arc.grip("l",0)
+    # arc.single_move_relate("right",[0,-0.3,0],[20 for i in range(6)],2)
+    # rountine_tune_pose_screw_and_rarm_observe()
+    # arc.set_grippers(0)
+    # arc.set_grippers(0)
     # rountine_tune_pose()

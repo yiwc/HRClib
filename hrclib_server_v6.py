@@ -1,26 +1,21 @@
 # Python3 Interfaces for ARC actions libraries - Intelligent Human-Robot Collaboration System
 # It connects to py2 servers, with py3 clients
 # Email: yiwen.chen@u.nus.edu
-import rospy
+# import rospy
 
 import rospy
 import actionlib
-import numpy as np
 import moveit_commander
 import time
 import threading
 
-import geometry_msgs
 # msgs
 from actionlib_msgs.msg import GoalStatus
+# from archieved import movo_arc_lib as arclib_msg
 import movo_arc_lib.msg as arclib_msg
 from movo_msgs.msg import JacoCartesianVelocityCmd
-from control_msgs.msg import PointHeadAction, PointHeadGoal
-from grasp_msgs.msg import FindGraspableObjectsAction, FindGraspableObjectsGoal
-from shape_msgs.msg import SolidPrimitive as sp
-from geometry_msgs.msg import Pose2D, PoseStamped, Quaternion, Vector3
+from geometry_msgs.msg import PoseStamped
 from moveit_msgs.msg import PlaceLocation, MoveItErrorCodes
-from std_msgs.msg import Bool
 from sensor_msgs.msg import JointState
 import moveit_msgs.msg
 from control_msgs.msg import (
@@ -30,18 +25,12 @@ from control_msgs.msg import (
 from trajectory_msgs.msg import (
     JointTrajectoryPoint,
 )
-from si_utils.head_jtas_test import HeadJTASTest
-from si_utils.base_motion_test import BaseMotionTest
-from si_utils.voice_test import MovoVoiceTest
+# from si_utils.head_jtas_test import HeadJTASTest
+# from si_utils.base_motion_test import BaseMotionTest
+# from si_utils.voice_test import MovoVoiceTest
 
 # interfaces and clients
-from moveit_python import (MoveGroupInterface,
-                           PlanningSceneInterface,
-                           PickPlaceInterface)
-
-from movo_action_clients.gripper_action_client import GripperActionClient
-from movo_action_clients.move_base_action_client import MoveBaseActionClient
-from movo_action_clients.torso_action_client import TorsoActionClient
+from moveit_python import (MoveGroupInterface)
 
 import copy
 
@@ -558,6 +547,7 @@ class L0_dual_set_gripper_srv():
         self._rgripper.command(v, block=False)
 
     def execute_cb(self,goal):
+        print("Goad get")
         success=True
         rospy.loginfo("goal get"+str(goal))
         self.goal_start_time=time.time()
@@ -1530,6 +1520,7 @@ class ARC_ACTION_LIB_NODE():
     def _subscribe_jointstates(self):
         rospy.Subscriber("/joint_states", JointState,
                          self._subscribe_jointstates_callback)
+
 
     def _subscribe_eepose(self):
         thr=threading.Thread(target=self.get_eepose,args=())
