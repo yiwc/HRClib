@@ -16,3 +16,5 @@ python server.py with py2
 1. the ROS Master should set to the Kinova Robot MOVO PC.
 
 
+!!!!!Update:
+For server, please run hrclib_server_sim_v1!!!
