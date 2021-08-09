@@ -140,6 +140,7 @@ class odyssey_Interface():
         # self.gval
 
 
+
         # rospy.init_node("odyssey_Interface_py3_node")
 
         self.client_L0_upper_jp_move_safe=myclient(name="L0_upper_jp_move_safe",
@@ -162,6 +163,10 @@ class odyssey_Interface():
         self.client_L0_single_task_move_safe=myclient(name="L0_single_task_move_safe",
                                                  action=arcmsg.single_task_move_safeAction,
                                                  fbmsg=arcmsg.single_task_move_safeFeedback)
+
+        # self.client_L0_single_task_move_safe=myclient(name="L0_single_task_move_safe",
+        #                                          action=arcmsg.
+        #                                          fbmsg=arcmsg.single_task_move_safeFeedback)
 
         self.client_L0_single_set_gripper=myclient(name="L0_single_set_gripper",
                                                    action=arcmsg.single_set_gripperAction,
@@ -666,12 +671,12 @@ def rountine_tune_pose_screw_and_rarm_observe():
     force=25
     arc._L0_single_task_move_safe("right",[0.739, 0.056-0.03, 1.253-0.06],
                                   [-2*math.pi+0.2,
-                                   math.pi / 2+math.pi/4+0.1,
-                                   -math.pi / 2],
+                                   math.pi / 2+math.pi/4-0.1,
+                                   -math.pi / 2-0.1],
                                   [force for i in range(6)])
 
     arc._L0_single_task_move_safe("left",[0.799-0.05, 0.178-0.04, 1.5],
-                                  [+math.pi, 0-0.1, -math.pi / 2],
+                                  [+math.pi-0.1, 0-0.1, -math.pi / 2-0.05],
                                   [force for i in range(6)])
 
     # pos=arc.gval.default_pose_screw_rightarm_observe
@@ -711,10 +716,10 @@ if __name__=="__main__":
 
     rospy.init_node("test")
     arc=odyssey_Interface()
-    # rountine_tune_pose_screw_and_rarm_observe()
+    rountine_tune_pose_screw_and_rarm_observe()
     # rountine_tune_pose_pickbolt()
     # routine_test_all()
-    rountine_tune_pose_screw_and_rarm_observe()
+    # rountine_tune_pose_screw_and_rarm_observe()
 
     # print(arc.get_rpose())
     print(arc.get_lpose())
