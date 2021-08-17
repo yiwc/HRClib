@@ -17,4 +17,4 @@ python server.py with py2
 
 Date:2021/08/17
 !!!!!Update:
-For server, please run hrclib_server_v7!!!
+The Newest branch is zhiyang,For server, please run hrclib_server_v7!!!
